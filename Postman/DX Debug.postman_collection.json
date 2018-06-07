@@ -1,0 +1,94 @@
+{
+	"info": {
+		"_postman_id": "1ff8e18c-346a-4c9b-a199-3183b013d5a6",
+		"name": "DX Debug",
+		"description": "Getting to the bottom of DX and Proxy trouble",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Create JWT local",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "816a4508-902c-43b5-a4e8-1fc5398f079e",
+						"type": "text/javascript",
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.environment.set(\"jwt\", pm.response.text());"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n\t\"issuer\" : \"That's the client token string\",\n\t\"audience\" : \"https://test.salesforce.com\",\n\t\"subject\" : \"john@doe.com\"\n}"
+				},
+				"url": {
+					"raw": "localhost:8080/create",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"create"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Validate a request",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "a7f2a3e5-ba8e-402e-9c2a-65f80dba8ea1",
+						"type": "text/javascript",
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n\t\"jwt\" : \"{{jwt}}\"\n}"
+				},
+				"url": {
+					"raw": "localhost:8080/validate",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"validate"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
