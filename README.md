@@ -21,4 +21,34 @@ A file `config.json` can be used to overwrite these values:
    "privateKey" : "server.key",
     "publicKey" : "server.pubkey"
 }
-```    
+```
+The values can be absolute or relative path
+
+## Creating a JWT Token
+
+Send a `POST` request to `localhost:8080/create` with a Json payload:
+
+```
+{
+    "issuer" : "That's the client token string",
+    "audience" : "https://test.salesforce.com",
+    "subject" : "john@doe.com",
+    "duration" : 300000
+}
+``` 
+Duration is optional. The return value is the JWT token
+
+## Validating a JWT Token
+
+Send a `POST` request to `localhost:8080/validate` with a Json payload:
+
+```
+{
+    "jwt" : "The JWT String"
+}
+```
+Return value will be the validated claim as Json string. Any Error throws an Error 500
+
+  
+## Postman sample
+In the Postman directory  
