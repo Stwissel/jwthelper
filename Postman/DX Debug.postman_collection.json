@@ -34,7 +34,7 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n\t\"issuer\" : \"That's the client token string\",\n\t\"audience\" : \"https://test.salesforce.com\",\n\t\"subject\" : \"john@doe.com\"\n}"
+					"raw": "{\n\t\"issuer\" : \"{{CLIENT_ID}}\",\n\t\"audience\" : \"https://test.salesforce.com\",\n\t\"subject\" : \"{{USER_ID}}\"\n}"
 				},
 				"url": {
 					"raw": "localhost:8080/create",
@@ -85,6 +85,78 @@
 					"port": "8080",
 					"path": [
 						"validate"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Production JWT Login",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "8838b018-015c-4c51-a18f-cdd408d29ab5",
+						"type": "text/javascript",
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"var jsonData = pm.response.json();",
+							"",
+							"pm.test(\"Is a bearer token\", function () {",
+							"    pm.expect(jsonData.token_type).to.eql(\"Bearer\");",
+							"});",
+							"",
+							"pm.test()"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/x-www-form-urlencoded"
+					}
+				],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "grant_type",
+							"value": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+							"description": "",
+							"type": "text"
+						},
+						{
+							"key": "assertion",
+							"value": "{{jwt}}",
+							"description": "",
+							"type": "text"
+						},
+						{
+							"key": "format",
+							"value": "token",
+							"description": "",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "https://login.salesforce.com/services/oauth2/token",
+					"protocol": "https",
+					"host": [
+						"login",
+						"salesforce",
+						"com"
+					],
+					"path": [
+						"services",
+						"oauth2",
+						"token"
 					]
 				}
 			},
