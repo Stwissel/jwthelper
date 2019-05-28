@@ -10,7 +10,7 @@
 	<properties>
 		<!-- Software versions -->
 		<java.version>1.8</java.version>
-		<vertx.version>3.5.1</vertx.version>
+		<vertx.version>3.7.1</vertx.version>
 		<junit.version>4.12</junit.version>
 		<jjwt.version>0.9.0</jjwt.version>
 		<!-- Miscelaneous settings -->
