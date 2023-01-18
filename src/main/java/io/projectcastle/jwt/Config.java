@@ -1,10 +1,10 @@
 /** ========================================================================= *
  * Copyright (C)  2017, 2018 Salesforce Inc ( http://www.salesforce.com/      *
  *                            All rights reserved.                            *
- *                                                                            *
- *  @author     Stephan H. Wissel (stw) <swissel@salesforce.com>              *
+ *                      2023 HCL Inc                                          *
+ *  @author     Stephan H. Wissel (stw) <stw@linux.com>                       *
  *                                       @notessensei                         *
- * @version     1.0                                                           *
+ * @version     2.0                                                           *
  * ========================================================================== *
  *                                                                            *
  * Licensed under the  Apache License, Version 2.0  (the "License").  You may *
@@ -21,9 +21,9 @@
  */
 package io.projectcastle.jwt;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.InputStream;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.Key;
 import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
@@ -31,70 +31,70 @@ import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
-import java.util.Scanner;
-
+import java.util.List;
+import java.util.Optional;
 import io.vertx.core.json.JsonObject;
 
 /**
  * @author swissel
- *
  */
 public class Config {
 
     private final JsonObject values;
 
+    private final List<String> replaceThem = List.of(
+            "-----BEGIN PRIVATE KEY-----\n",
+            "-----END PRIVATE KEY-----",
+            "-----BEGIN RSA PRIVATE KEY-----\n",
+            "-----END RSA PRIVATE KEY-----",
+            "-----BEGIN PUBLIC KEY-----\n",
+            "-----END PUBLIC KEY-----",
+            "\n");
+
     public Config(final JsonObject configValues) {
         this.values = configValues;
     }
 
-    public Key getPrivateKey() throws NoSuchAlgorithmException, InvalidKeySpecException {
-        Key key = null;
-        String privateKeyName = this.values.getString("privateKey", "server.key");
-        String keyString = this.fileToString(privateKeyName);
-        keyString = keyString.replace("-----BEGIN PRIVATE KEY-----\n", "")
-                .replace("-----END PRIVATE KEY-----", "").replaceAll("\n", "");
-        final KeyFactory kf = KeyFactory.getInstance("RSA");
-        final byte[] decoded = Base64.getDecoder().decode(keyString);
-        final PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(decoded);
-        key = kf.generatePrivate(spec);
-        return key;
+    private byte[] getBytes(final String keyType, final String defaultName)
+            throws KeyStringMissingException {
+        String keyName = this.values.getString(keyType, defaultName);
+        String keyString = this.fileToString(keyName)
+                .orElseThrow(() -> new KeyStringMissingException(keyType + " Key Missing"));
+        for (String r : replaceThem) {
+            keyString = keyString.replace(r, "");
+        }
+
+        return Base64.getDecoder().decode(keyString);
     }
 
-    public Key getPublicKey() throws NoSuchAlgorithmException, InvalidKeySpecException {
-        Key key = null;
-        String pubKeyName = this.values.getString("publicKey", "server.pubkey");
-        String keyString = this.fileToString(pubKeyName);
-        keyString = keyString.replace("-----BEGIN PUBLIC KEY-----\n", "")
-                .replace("-----END PUBLIC KEY-----", "").replaceAll("\n", "");
-        final byte[] decoded = Base64.getDecoder().decode(keyString);
+    public Key getPrivateKey()
+            throws NoSuchAlgorithmException, InvalidKeySpecException, KeyStringMissingException {
+        final byte[] decoded = getBytes("privateKey", "server.key");
+        final KeyFactory kf = KeyFactory.getInstance("RSA");
+        final PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(decoded);
+        return kf.generatePrivate(spec);
+    }
+
+    public Key getPublicKey()
+            throws NoSuchAlgorithmException, InvalidKeySpecException, KeyStringMissingException {
+        final byte[] decoded = getBytes("publicKey", "server.pubkey");
         final KeyFactory kf = KeyFactory.getInstance("RSA");
         final X509EncodedKeySpec keySpecX509 = new X509EncodedKeySpec(decoded);
-        key = kf.generatePublic(keySpecX509);
-        return key;
+        return kf.generatePublic(keySpecX509);
     }
 
-    private String fileToString(final String resourceName) {
+    private Optional<String> fileToString(final String resourceName) {
         try {
-            InputStream in = null;
-            File directPath = new File(resourceName);
-            if (directPath.exists()) {
-                in = new FileInputStream(directPath);
-                System.out.println("Resource loaded from file:" + directPath.getAbsolutePath());
-            } else {
-                System.out.println("Couldn't find file " + directPath.getAbsolutePath());
-            }
 
-            final Scanner scanner = new Scanner(in);
-            final String result = scanner.useDelimiter("\\Z").next();
-            scanner.close();
-            if (in != null) {
-                in.close();
-            }
-            return result;
-        } catch (Exception e) {
+            final Path path = Path.of(resourceName);
+            final String result = Files.readString(path);
+            return Optional.ofNullable(result);
+        } catch (IOException e) {
             e.printStackTrace();
         }
-        return null;
+
+        return Optional.empty();
+
     }
 
 }
