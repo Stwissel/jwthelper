@@ -1,3 +1,11 @@
+#OS Level files
+.DS_Store
+Thumbs.*
+ehthumbs.*
+[Dd]desktop.ini
+*.lnk
+$RECYCLE.BIN/
+._*
 target/
 pom.xml.tag
 pom.xml.releaseBackup
@@ -11,6 +19,9 @@ buildNumber.properties
 .settings
 *.key
 *.pubkey
-.classpass
+*.pub
+.classpath
+.factorypath
+.vscode
 # Avoid ignoring Maven wrapper jar file (.jar files are usually ignored)
 !/.mvn/wrapper/maven-wrapper.jar

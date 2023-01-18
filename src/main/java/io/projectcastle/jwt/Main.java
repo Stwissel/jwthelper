@@ -1,10 +1,10 @@
 /** ========================================================================= *
  * Copyright (C)  2017, 2018 Salesforce Inc ( http://www.salesforce.com/      *
  *                            All rights reserved.                            *
- *                                                                            *
- *  @author     Stephan H. Wissel (stw) <swissel@salesforce.com>              *
+ *                      2023 HCL Inc                                          *
+ *  @author     Stephan H. Wissel (stw) <stw@linux.com>                       *
  *                                       @notessensei                         *
- * @version     1.0                                                           *
+ * @version     2.0                                                           *
  * ========================================================================== *
  *                                                                            *
  * Licensed under the  Apache License, Version 2.0  (the "License").  You may *
@@ -26,7 +26,8 @@ import java.security.Key;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Date;
-
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
@@ -39,20 +40,18 @@ import io.vertx.config.ConfigRetrieverOptions;
 import io.vertx.config.ConfigStoreOptions;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.json.JsonObject;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 
 /**
  * @author swissel
- *
  */
 public class Main extends AbstractVerticle {
 
-    public final static String CONFIG_FILE = "config.json";
+    public static final String CONFIG_FILE = "config.json";
 
     /**
      * @param args
@@ -62,40 +61,36 @@ public class Main extends AbstractVerticle {
 
     }
 
-    private final Logger logger = LoggerFactory.getLogger(this.getClass());
-    private Router       router;
-    private Config       appConfig;
-    private int          port   = 8080;
+    private final Logger logger = LogManager.getLogger(this.getClass());
+    private Router router;
+    private Config appConfig;
+    private int port = 8080;
 
     @Override
-    public void start(final Future<Void> startFuture) throws Exception {
-        final Future<Void> appConfigLoad = Future.future();
+    public void start(final Promise<Void> startPromise) throws Exception {
 
-        appConfigLoad.setHandler(ar -> {
-            if (ar.succeeded()) {
-                this.loadRoutes();
-                // Launch the server
-                this.logger.info("Listening on port " + Integer.toString(this.port));
-                this.vertx.createHttpServer().requestHandler(this.router::accept).listen(this.port);
-
-                // We made it!
-                startFuture.complete();
-            } else {
-                startFuture.fail(ar.cause());
-            }
-
-        });
-        this.loadAppConfig(appConfigLoad);
+        this.loadAppConfig()
+                .compose(v -> this.loadRoutes())
+                .compose(v -> {
+                    // Launch the server
+                    this.logger.info("Listening on port {}", this.port);
+                    return this.vertx.createHttpServer()
+                            .requestHandler(this.router)
+                            .listen(this.port);
+                })
+                .onSuccess(v -> startPromise.complete())
+                .onFailure(startPromise::fail);
     }
 
     private void createHandler(final RoutingContext ctx) {
-        final JsonObject payload = ctx.getBodyAsJson();
-        Key key;
+        final JsonObject payload;
+        final Key key;
         try {
+            payload = ctx.body().asJsonObject();
             key = this.appConfig.getPrivateKey();
-        } catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
+        } catch (NoSuchAlgorithmException | InvalidKeySpecException | KeyStringMissingException e) {
             e.printStackTrace();
-            ctx.response().setStatusCode(500).end(e.getMessage());
+            ctx.response().setStatusCode(400).end(e.getMessage());
             return;
         }
 
@@ -116,7 +111,7 @@ public class Main extends AbstractVerticle {
         ctx.response().end(compactJws);
     }
 
-    private void loadAppConfig(final Future<Void> configLoad) {
+    private Future<Void> loadAppConfig() {
 
         // Get Port for web server
         final String portCandidate = System.getenv("PORT");
@@ -126,43 +121,49 @@ public class Main extends AbstractVerticle {
             }
         } catch (final Exception e) {
             this.logger.fatal(e);
-            configLoad.fail(e);
+            return Future.failedFuture(e);
         }
 
         // Populate configuration object
         final File cFile = new File(Main.CONFIG_FILE);
-        
+
         if (!cFile.exists()) {
             System.out.println("Running without " + cFile.getAbsolutePath());
             this.appConfig = new Config(new JsonObject());
-            configLoad.complete();
-            return;
+            return Future.succeededFuture();
         }
 
-        final ConfigStoreOptions fileConfig = new ConfigStoreOptions().setType("file").setFormat("json")
-                .setConfig(new JsonObject().put("path", Main.CONFIG_FILE));
+        Promise<Void> configLoad = Promise.promise();
 
-        final ConfigRetrieverOptions retrieverOptions = new ConfigRetrieverOptions().addStore(fileConfig);
+        final ConfigStoreOptions fileConfig =
+                new ConfigStoreOptions().setType("file").setFormat("json")
+                        .setConfig(new JsonObject().put("path", Main.CONFIG_FILE));
+
+        final ConfigRetrieverOptions retrieverOptions =
+                new ConfigRetrieverOptions().addStore(fileConfig);
         final ConfigRetriever retriever = ConfigRetriever.create(this.getVertx(), retrieverOptions);
 
-        retriever.getConfig(ar -> {
-            if (ar.failed()) {
-                System.out.println("Running without " + cFile.getAbsolutePath());
-                this.appConfig = new Config(new JsonObject());
-            } else {
-                this.appConfig = new Config(ar.result());
+        retriever.getConfig()
+                .onFailure(err -> {
+                    System.out.println("Running without " + cFile.getAbsolutePath());
+                    this.appConfig = new Config(new JsonObject());
+                    configLoad.complete();
+                })
+                .onSuccess(cfg -> {
+                    this.appConfig = new Config(cfg);
+                    configLoad.complete();
+                });
 
-            }
-            configLoad.complete();
-        });
+        return configLoad.future();
     }
 
-    private void loadRoutes() {
+    private Future<Void> loadRoutes() {
         this.router = Router.router(this.getVertx());
         this.router.route("/").handler(this::rootHandler);
         this.router.post("/*").handler(BodyHandler.create());
         this.router.post("/create").handler(this::createHandler);
         this.router.post("/validate").handler(this::validateHandler);
+        return Future.succeededFuture();
     }
 
     private void rootHandler(final RoutingContext ctx) {
@@ -171,21 +172,24 @@ public class Main extends AbstractVerticle {
 
     private void validateHandler(final RoutingContext ctx) {
 
-        final JsonObject payload = ctx.getBodyAsJson();
-        final String jwtString = payload.getString("jwt", "jwt");
+        final JsonObject payload;
+        final String jwtString;
+
         try {
-            final Claims claims = Jwts.parser().setSigningKey(this.appConfig.getPublicKey()).parseClaimsJws(jwtString)
+            payload = ctx.body().asJsonObject();
+            jwtString = payload.getString("jwt", "jwt");
+            final Claims claims = Jwts.parser().setSigningKey(this.appConfig.getPublicKey())
+                    .parseClaimsJws(jwtString)
                     .getBody();
             final JsonObject result = new JsonObject();
-            claims.forEach((k, v) -> {
-                result.put(k, v);
-            });
-            ctx.response().putHeader("Content-Type", "application/json").end(result.encodePrettily());
-        } catch (ExpiredJwtException | UnsupportedJwtException | MalformedJwtException | SignatureException
+            claims.forEach(result::put);
+            ctx.response().putHeader("Content-Type", "application/json")
+                    .end(result.encodePrettily());
+        } catch (ExpiredJwtException | UnsupportedJwtException | MalformedJwtException
+                | SignatureException | KeyStringMissingException
                 | IllegalArgumentException | NoSuchAlgorithmException | InvalidKeySpecException e) {
             e.printStackTrace();
-            ctx.response().setStatusCode(500).end(e.getMessage());
-            return;
+            ctx.response().setStatusCode(400).end(e.getMessage());
         }
 
     }

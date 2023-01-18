@@ -1,10 +1,10 @@
 /** ========================================================================= *
- * Copyright (C)  2018 Salesforce Inc ( http://www.salesforce.com/ )          *
+ * Copyright (C)  2017, 2018 Salesforce Inc ( http://www.salesforce.com/      *
  *                            All rights reserved.                            *
- *                                                                            *
- *  @author     Stephan H. Wissel (stw) <swissel@salesforce.com>              *
+ *                      2023 HCL Inc                                          *
+ *  @author     Stephan H. Wissel (stw) <stw@linux.com>                       *
  *                                       @notessensei                         *
- * @version     1.0                                                           *
+ * @version     2.0                                                           *
  * ========================================================================== *
  *                                                                            *
  * Licensed under the  Apache License, Version 2.0  (the "License").  You may *
@@ -22,16 +22,15 @@
 package io.projectcastle.jwt;
 
 import java.util.function.Consumer;
-
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
 
 public class Runner {
 
-    static Logger logger = LoggerFactory.getLogger(Runner.class);
+    static Logger logger = LogManager.getLogger(Runner.class);
 
     public static void runVerticle(final String verticleID, final boolean debugMode) {
 
@@ -41,9 +40,9 @@ public class Runner {
                 final DeploymentOptions depOpt = new DeploymentOptions();
                 vertx.deployVerticle(verticleID, depOpt, res -> {
                     if (res.succeeded()) {
-                        Runner.logger.info(verticleID + " deployed as " + res.result());
+                        Runner.logger.info("{} deployed as {}", verticleID, res.result());
                     } else {
-                        Runner.logger.error("Deployment failed for " + verticleID);
+                        Runner.logger.error("Deployment failed for {}", verticleID);
                     }
                 });
             } catch (final Throwable t) {
@@ -64,5 +63,9 @@ public class Runner {
         // Debug was given as parameter or there's an environment variable
         // set to true so we go debugging
         return debugMode || Boolean.parseBoolean(System.getenv("Debug"));
+    }
+
+    private Runner() {
+        // Static calls only
     }
 }

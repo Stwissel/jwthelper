@@ -1,18 +1,23 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>io.projectcastle.jwt</groupId>
 	<artifactId>jwthelper</artifactId>
-	<version>1.0.0</version>
+	<version>2.0.0</version>
 	<name>JWT Helper</name>
 	<description>Small local server task to create/validate JWT Tokens</description>
 
 	<properties>
 		<!-- Software versions -->
-		<java.version>1.8</java.version>
-		<vertx.version>3.9.4</vertx.version>
-		<junit.version>4.13.1</junit.version>
-		<jjwt.version>0.9.0</jjwt.version>
+		<vertx.version>4.3.7</vertx.version>
+		<jjwt.version>0.11.5</jjwt.version>
+		<junit.jupiter.version>5.9.2</junit.jupiter.version>
+		<junit.platform.version>1.9.2</junit.platform.version>
+		<log4j2.version>2.19.0</log4j2.version>
+		<!-- Java version -->
+		<maven.compiler.source>17</maven.compiler.source>
+		<maven.compiler.target>${maven.compiler.source}</maven.compiler.target>
 		<!-- Miscelaneous settings -->
 		<project.autorelease>true</project.autorelease>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
@@ -40,17 +45,35 @@
 	<build>
 		<plugins>
 			<plugin>
-				<artifactId>maven-compiler-plugin</artifactId>
-				<version>3.3</version>
-				<configuration>
-					<source>${java.version}</source>
-					<target>${java.version}</target>
-				</configuration>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-enforcer-plugin</artifactId>
+				<version>3.1.0</version>
+				<executions>
+					<execution>
+						<id>enforce-maven</id>
+						<goals>
+							<goal>enforce</goal>
+						</goals>
+						<configuration>
+							<rules>
+								<requireMavenVersion>
+									<version>(3.8,)</version>
+								</requireMavenVersion>
+							</rules>
+						</configuration>
+					</execution>
+				</executions>
 			</plugin>
+
+			<plugin>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.10.1</version>
+			</plugin>
+
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-shade-plugin</artifactId>
-				<version>2.3</version>
+				<version>3.3.0</version>
 				<executions>
 					<execution>
 						<phase>package</phase>
@@ -62,7 +85,7 @@
 								<transformer
 									implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
 									<manifestEntries>
-										<Main-Class>io.vertx.core.Starter</Main-Class>
+										<Main-Class>io.vertx.core.Launcher</Main-Class>
 										<Main-Verticle>io.projectcastle.jwt.Main</Main-Verticle>
 									</manifestEntries>
 								</transformer>
@@ -72,6 +95,18 @@
 						</configuration>
 					</execution>
 				</executions>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<version>3.0.0-M7</version>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-failsafe-plugin</artifactId>
+				<version>3.0.0-M7</version>
 			</plugin>
 		</plugins>
 	</build>
@@ -97,44 +132,70 @@
 		</dependency>
 
 		<dependency>
-			<groupId>io.vertx</groupId>
-			<artifactId>vertx-docgen</artifactId>
-			<version>${vertx.version}</version>
-			<scope>provided</scope>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-api</artifactId>
+			<version>${jjwt.version}</version>
 		</dependency>
-
-		<dependency>
-			<groupId>io.vertx</groupId>
-			<artifactId>vertx-codetrans</artifactId>
-			<version>${vertx.version}</version>
-			<scope>provided</scope>
-		</dependency>
-
-		<dependency>
-			<groupId>io.vertx</groupId>
-			<artifactId>vertx-codegen</artifactId>
-			<version>${vertx.version}</version>
-			<scope>provided</scope>
-		</dependency>
-
-		<dependency>
-			<groupId>junit</groupId>
-			<artifactId>junit</artifactId>
-			<version>${junit.version}</version>
-			<scope>test</scope>
-		</dependency>
-
-		<dependency>
-			<groupId>io.vertx</groupId>
-			<artifactId>vertx-unit</artifactId>
-			<version>${vertx.version}</version>
-			<scope>test</scope>
-		</dependency>
-
 		<dependency>
 			<groupId>io.jsonwebtoken</groupId>
-			<artifactId>jjwt</artifactId>
+			<artifactId>jjwt-impl</artifactId>
 			<version>${jjwt.version}</version>
+			<scope>runtime</scope>
+		</dependency>
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-gson</artifactId>
+			<version>${jjwt.version}</version>
+			<scope>runtime</scope>
+		</dependency>
+
+		<!-- Logging -->
+		<dependency>
+			<groupId>org.apache.logging.log4j</groupId>
+			<artifactId>log4j-api</artifactId>
+			<version>${log4j2.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.apache.logging.log4j</groupId>
+			<artifactId>log4j-core</artifactId>
+			<version>${log4j2.version}</version>
+		</dependency>
+
+		<!-- Test dependencies -->
+		<dependency>
+			<groupId>io.vertx</groupId>
+			<artifactId>vertx-junit5</artifactId>
+			<version>${vertx.version}</version>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter-engine</artifactId>
+			<version>${junit.jupiter.version}</version>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter-api</artifactId>
+			<version>${junit.jupiter.version}</version>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter-params</artifactId>
+			<version>${junit.jupiter.version}</version>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.junit.platform</groupId>
+			<artifactId>junit-platform-suite</artifactId>
+			<version>${junit.platform.version}</version>
+			<scope>test</scope>
 		</dependency>
 
 	</dependencies>
